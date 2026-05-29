@@ -1,0 +1,9 @@
+{
+    "id": "selection-assistant",
+    "name": "Selection Assistant",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "description": "Select text to translate, search, copy, or run custom LLM prompts via a floating toolbar.",
+    "author": "veritasian",
+    "isDesktopOnly": false
+}
