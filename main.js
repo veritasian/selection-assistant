@@ -491,46 +491,39 @@ module.exports = class SelectionAssistant extends Plugin {
 // ─── LLM Service ─────────────────────────────────────────────────────
 
 const LLMService = {
+    _detectProtocol(host) {
+        if (host.includes('11434') || host.includes('ollama')) return 'ollama';
+        if (host.includes('openrouter')) return 'openrouter';
+        if (host.includes('anthropic') || host.includes('deepseek')) return 'anthropic';
+        return 'openai';
+    },
+
     async chat(settings, prompt) {
         const host = settings.llmHost.replace(/\/+$/, '');
-        const isAnthropic = host.includes('anthropic') || host.includes('deepseek');
-        const isOllama = host.includes('11434') || host.includes('ollama');
+        if (!settings.llmApiKey && host.includes('api')) {
+            throw new Error('API key is empty. Enter your key first.');
+        }
+        const proto = this._detectProtocol(host);
 
         let url, body, headers;
+        const model = settings.llmModel || (PROVIDER_PRESETS[settings.llmProvider]?.search || 'gpt-4');
 
-        if (isOllama) {
+        if (proto === 'ollama') {
             url = host + '/chat/completions';
-            body = JSON.stringify({
-                model: settings.llmModel || 'llama3.2',
-                max_tokens: settings.llmMaxTokens,
-                messages: [{ role: 'user', content: prompt }]
-            });
+            body = JSON.stringify({ model, max_tokens: settings.llmMaxTokens, messages: [{ role: 'user', content: prompt }] });
             headers = { 'Content-Type': 'application/json' };
-        } else if (isAnthropic) {
+        } else if (proto === 'anthropic') {
             url = host + '/messages';
-            body = JSON.stringify({
-                model: settings.llmModel,
-                max_tokens: settings.llmMaxTokens,
-                messages: [{ role: 'user', content: prompt }]
-            });
-            headers = {
-                'Content-Type': 'application/json',
-                'x-api-key': settings.llmApiKey,
-                'anthropic-version': '2023-06-01',
-            };
+            body = JSON.stringify({ model, max_tokens: settings.llmMaxTokens, messages: [{ role: 'user', content: prompt }] });
+            headers = { 'Content-Type': 'application/json', 'x-api-key': settings.llmApiKey, 'anthropic-version': '2023-06-01' };
         } else {
-            // OpenAI-compatible (SiliconFlow, etc.)
+            // OpenAI-compatible: OpenRouter, Groq, etc.
             url = host + '/chat/completions';
-            body = JSON.stringify({
-                model: settings.llmModel,
-                max_tokens: settings.llmMaxTokens,
-                messages: [{ role: 'user', content: prompt }]
-            });
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${settings.llmApiKey}`,
-            };
+            body = JSON.stringify({ model, max_tokens: settings.llmMaxTokens, messages: [{ role: 'user', content: prompt }] });
+            headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.llmApiKey}` };
         }
+
+        console.log('[SA] LLM request:', { url, model, hasKey: !!settings.llmApiKey });
 
         const resp = await fetch(url, { method: 'POST', headers, body });
         if (!resp.ok) {
@@ -546,20 +539,25 @@ const LLMService = {
 
     async fetchModels(settings) {
         const host = settings.llmHost.replace(/\/+$/, '');
-        const isAnthropic = host.includes('anthropic') || host.includes('deepseek');
-        const isOllama = host.includes('11434') || host.includes('ollama');
-
+        if (!settings.llmApiKey && host.includes('api')) {
+            throw new Error('API key is empty. Enter your key first.');
+        }
+        const proto = this._detectProtocol(host);
         const headers = {};
-        if (isAnthropic) {
+
+        if (proto === 'anthropic') {
             headers['x-api-key'] = settings.llmApiKey;
             headers['anthropic-version'] = '2023-06-01';
-        } else if (!isOllama) {
+        } else if (proto !== 'ollama') {
             headers['Authorization'] = `Bearer ${settings.llmApiKey}`;
         }
 
+        console.log('[SA] Fetch models:', host + '/models', { hasKey: !!settings.llmApiKey });
         const resp = await fetch(host + '/models', { headers });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
+        if (!resp.ok) {
+            const err = await resp.text();
+            throw new Error(`HTTP ${resp.status}: ${err.slice(0, 100)}`);
+        }
         const data = await resp.json();
         const raw = data.data || data.models || data || [];
         return raw.map(m => typeof m === 'string' ? m : (m.id || m.model || m.name || String(m))).filter(Boolean);
@@ -636,13 +634,24 @@ class SASettingsTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName('API Host')
             .setDesc('Anthropic or OpenAI-compatible endpoint')
-            .addText(t => t.setValue(s.llmHost).setPlaceholder('https://api.deepseek.com/anthropic')
-                .onChange(async v => { s.llmHost = v; s.llmSaved = false; await this.plugin.saveSettings(); }));
+            .addText(t => {
+                t.setValue(s.llmHost).setPlaceholder('https://api.deepseek.com/anthropic');
+                t.inputEl.addEventListener('input', () => { s.llmHost = t.getValue(); s.llmSaved = false; });
+                t.onChange(async v => { s.llmHost = v; s.llmSaved = false; await this.plugin.saveSettings(); });
+            });
 
         new Setting(containerEl)
             .setName('API Key')
-            .addText(t => { t.inputEl.type = 'password'; t.setValue(s.llmApiKey).setPlaceholder('sk-...')
-                .onChange(async v => { s.llmApiKey = v; s.llmSaved = false; await this.plugin.saveSettings(); }); });
+            .addText(t => {
+                t.inputEl.type = 'password';
+                t.setValue(s.llmApiKey).setPlaceholder('sk-...');
+                // Sync on every keystroke (not just blur) so buttons can read the value
+                t.inputEl.addEventListener('input', () => {
+                    s.llmApiKey = t.getValue();
+                    s.llmSaved = false;
+                });
+                t.onChange(async v => { s.llmApiKey = v; s.llmSaved = false; await this.plugin.saveSettings(); });
+            });
 
         // Fetch Models + Model dropdown
         const modelSetting = new Setting(containerEl)
