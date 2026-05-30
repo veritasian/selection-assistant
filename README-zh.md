@@ -1,4 +1,4 @@
-# Selection Assistant — Obsidian 智能划词工具栏
+# AI Selection Assistant — Obsidian 智能划词工具栏
 
 > 在 Obsidian 中划选文字，精致浮动工具栏出现在光标旁。翻译、复制、搜索、自定义 LLM 技能——无需离开笔记。
 
@@ -8,9 +8,17 @@
 
 [English](README.md)
 
+
+
+<img width="1592" height="696" alt="Screenshot 2026-05-31 at 07-55-42" src="https://github.com/user-attachments/assets/45b79d0b-f457-4be1-bf1b-a8e212dfb74d" />
+
+
+
+
 ## 为什么需要 Selection Assistant
 
 Obsidian 是强大的写作工具，但频繁在不同应用间切换来翻译、搜索、处理文字会打断思绪。Selection Assistant 将一切操作放在光标旁——划词、点击、完成。
+灵感来源于豆包划词助手和popclik,数据不外泄,自定义任何自己想要的结果. 
 
 每个按钮以**白色圆圈内显示技能名称首字母**作为图标。风格原生适配 Obsidian，自动跟随浅色/深色主题。
 
@@ -60,6 +68,7 @@ git clone https://github.com/veritasian/selection-assistant.git
    ▼    ▼    ▼    ▼
  Google剪贴 浏览器  LLM
 ```
+<img width="2208" height="2000" alt="Screenshot 2026-05-31 at 07-56-41" src="https://github.com/user-attachments/assets/94532641-3d61-401b-86de-844e6a623d5b" />
 
 ## 内置功能
 
