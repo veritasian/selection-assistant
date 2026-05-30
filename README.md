@@ -1,4 +1,4 @@
-# Selection Assistant — Smart Floating Toolbar for Obsidian
+# Ai Selection Assistant — Smart Floating Toolbar for Obsidian
 
 > Drag-select any text in Obsidian and a sleek floating toolbar appears. Translate, copy, search, or run custom LLM prompts — all without leaving your note.
 
